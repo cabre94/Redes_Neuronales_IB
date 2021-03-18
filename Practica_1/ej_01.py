@@ -18,7 +18,6 @@ T = 20.0 + 273.15     # K : Kelvin
 k = 8.6e-5          # ev/K
 
 def nernst(concentraciones):
-  """Calcula el potencial de equilibrio."""
   return k * T * np.log(concentraciones[1] / concentraciones[0])
 
 if __name__ == "__main__":
