@@ -13,6 +13,7 @@ Description:
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+from scipy.signal import find_peaks
 import seaborn as sns
 sns.set()
 
@@ -51,31 +52,41 @@ def tau(a, b):
 def x_inf(a, b):
     return a/(a+b)
 
-def Hogdkin_Huxley(z, t, I=0):
+def Hogdkin_Huxley(z, t, I=0, m_inf=False, hn_cte=False):
     V, m, h, n = z
-    # dVdt
-    I_Na = g_Na * np.power(m,3) * h * (V - V_Na)
-    I_K = g_K * np.power(n,4) * (V - V_K)
-    # I_Na = g_Na * m**3 * h * (V - V_Na)
-    # I_K = g_K * n**4 * (V - V_K)
-    I_L = g_l * (V - V_l)
-    dVdt = I - I_Na - I_K - I_L
-    dVdt /= C
+
     # dmdt
     a, b = a_m(V), b_m(V)
-    dmdt = (x_inf(a,b) - m) / tau(a,b)
+    if m_inf or hn_cte:
+        dmdt = 0    # Aca la derivada no importa, pero si pongo None da mal no se xq
+        m = x_inf(a,b)
+    else:
+        dmdt = (x_inf(a,b) - m) / tau(a,b)
+    
     # dhdt
     a, b = a_h(V), b_h(V)
     dhdt = (x_inf(a,b) - h) / tau(a,b)
+    
     # dndt
-    a, b = a_n(V), b_n(V)
-    dndt = (x_inf(a,b) - n) / tau(a,b)
+    if hn_cte:
+        dndt = -dhdt
+        # n = 0.8 - h
+    else:
+        a, b = a_n(V), b_n(V)
+        dndt = (x_inf(a,b) - n) / tau(a,b)
+    
+    # dVdt
+    I_Na = g_Na * np.power(m,3) * h * (V - V_Na)
+    I_K = g_K * np.power(n,4) * (V - V_K)
+    I_L = g_l * (V - V_l)
+    dVdt = I - I_Na - I_K - I_L
+    dVdt /= C
 
     return [dVdt, dmdt, dhdt, dndt]
 
-
-def primerIntento(n_iter = 2000):
-    z_0 = [-70, 0.1, 0.6, 0.3]  # De donde saco esto Alvaro?
+def simulacion(n_iter = 2000, m_inf=False, hn_cte=False):
+    # z_0 = [-70, 0.1, 0.5, 0.3]  # De donde saco esto Alvaro?
+    z_0 = [-70, x_inf(a_m(-70), b_m(-70)), 0.5, 0.3]  # De donde saco esto Alvaro?
     
     t = np.linspace(0, 200, n_iter)
     V = np.zeros_like(t)
@@ -83,22 +94,91 @@ def primerIntento(n_iter = 2000):
     h = np.zeros_like(t)
     n = np.zeros_like(t)
     V[0], m[0], h[0], n[0] = z_0
-    
+
     I_ext = np.zeros_like(t)
     I_ext[n_iter // 4: 3 * n_iter // 4] = 10    # Cuando encajamos corriente
 
     for i in range(1, n_iter):
         t_span = [t[i - 1], t[i]]
-        z = odeint(Hogdkin_Huxley, z_0, t_span, args=(I_ext[i], ))
-        # hodgkin_huxley_m_inf,
-        # hodgkin_huxley_m_inf_hn_cte,
+        z = odeint(Hogdkin_Huxley, z_0, t_span, args=(I_ext[i], m_inf, hn_cte))
         z_0 = z[1]
         V[i], m[i], h[i], n[i] = z_0
+        # import ipdb; ipdb.set_trace(context=15)  # XXX BREAKPOINT
+    
+    if m_inf or hn_cte:
+        m = x_inf(a_m(V), b_m(V))
+    
+    # import ipdb; ipdb.set_trace(context=15)  # XXX BREAKPOINT
 
     I_Na = g_Na * m**3 * h * (V - V_Na)
     I_K = g_K * n**4 * (V - V_K)
     I_L = g_l * (V - V_l)
 
+    plotear(t, V, I_ext, I_Na, I_K, I_L, m, h, n)
+
+def barridoI(n_iter = 2000, t_max=200, I_iter=10, m_inf=False, hn_cte=False):
+    z_0 = [-70, x_inf(a_m(-70), b_m(-70)), 0.5, 0.3]  # De donde saco esto Alvaro?
+
+    t = np.linspace(0, t_max, n_iter)
+    I_max_list = np.linspace(4, 12, I_iter)
+    I_max_list = np.concatenate([I_max_list, I_max_list[:-1][::-1]])
+
+    V_log = []
+    m_log = []
+    h_log = []
+    n_log = []
+
+    for I_max in I_max_list:
+        print("I: {}".format(I_max))
+        V = np.zeros_like(t)
+        m = np.zeros_like(t)
+        h = np.zeros_like(t)
+        n = np.zeros_like(t)
+        V[0], m[0], h[0], n[0] = z_0
+
+        z = odeint(Hogdkin_Huxley, z_0, t, args=(I_max,))
+
+        V = z[:,0]
+        m = z[:,1]
+        h = z[:,2]
+        n = z[:,3]
+
+        V_log.append(V)
+        m_log.append(m)
+        h_log.append(h)
+        n_log.append(n)
+
+        # Para la siguiente iteracion dejo como CI el estado final de esta iteracino
+        z_0 = z[-1]
+    
+    f_list = []
+    for V in V_log:
+        times, _ = find_peaks(V, height=-20)
+        f = 0
+        if len(times) > 1:
+            isi = (times[1: ] - times[: -1]) * t_max / n_iter
+            f = 1 / np.mean(isi) * 1e3  # El tiempo en segundos
+        f_list.append(f)
+    
+    plt.plot(I_max_list, f_list)
+    u = np.diff(I_max_list)
+    v = np.diff(f_list)
+    x = np.array(I_max_list[: -1]) + u/2
+    y = np.array(f_list[: -1]) + v/2
+    norm = np.sqrt(u**2 + v**2) 
+    plt.quiver(x, y, u / norm, v / norm, angles="xy", alpha=0.5)
+    plt.ylabel("Tasa de disparo (Hz)")
+    plt.xlabel("Corriente (μA cm$^{-2}$)")
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+    
+
+
+def plotear(t, V, I_ext, I_Na, I_K, I_L, m, h, n):
     plt.plot(t, V, label="Membrana")
     plt.ylabel("Tensión de membrana (mV)")
     plt.xlabel("Tiempo (ms)")
@@ -138,6 +218,7 @@ def primerIntento(n_iter = 2000):
     plt.plot(t, m, label="m")
     plt.plot(t, h, label="h")
     plt.plot(t, n, label="n")
+    plt.plot(t, n+h, label="n+h")
     plt.ylabel("Variables de compuerta")
     plt.xlabel("Tiempo (ms)")
     # sns.despine(trim=True)
@@ -156,7 +237,9 @@ def primerIntento(n_iter = 2000):
     # plt.close()
 
 
-
-
 if __name__ == "__main__":
-    primerIntento()
+    # simulacion()
+    # simulacion(m_inf=True)
+    # simulacion(hn_cte=True)
+
+    barridoI()
