@@ -19,8 +19,8 @@ from scipy.signal import find_peaks
 import seaborn as sns
 sns.set()
 
+# Creamos carpeta para guardar los archivos
 SAVE_PATH = os.path.join("Figuras", "ej_01")
-# SAVE_PATH = os.path.join("Figuras", "Ej_06")
 if not os.path.exists(SAVE_PATH):
     os.makedirs(os.path.join(SAVE_PATH,"Excitatorio"))
     os.makedirs(os.path.join(SAVE_PATH,"Inhibitorio"))
@@ -34,6 +34,7 @@ g_K = 36        # mS/cm²
 g_l = 0.3       # mS/cm²
 C = 1           # Capacitancia de la membrana \mu F / cm²
 
+# Funciones auxiliares para el modelo de Hogdkin Huxley
 def a_m(V):
     aux = 0.1*V + 4.0 
     return aux / (1 - np.exp(-aux) )
@@ -63,6 +64,7 @@ def x_inf(a, b):
 def s_inf(V):
     return 0.5 * (1 + np.tanh(0.2*V))
 
+# Modelo Hogdkin Huxley, es una adaptacion que permite algunas aproximaciones que no se usan en este ejercicio
 def Hogdkin_Huxley(z, t, g_syn, V_pre, I_ext=0, V_syn=0, tauS=3, m_inf=False, hn_cte=False):
     V, m, h, n, s = z
 
@@ -94,7 +96,6 @@ def Hogdkin_Huxley(z, t, g_syn, V_pre, I_ext=0, V_syn=0, tauS=3, m_inf=False, hn
     I_K = g_K * np.power(n,4) * (V - V_K)
     I_L = g_l * (V - V_l)
     I_syn = -g_syn * s * (V - V_syn)
-    # print(I_syn)
 
     dVdt = I_ext + I_syn - I_Na - I_K - I_L
     dVdt /= C
@@ -103,62 +104,52 @@ def Hogdkin_Huxley(z, t, g_syn, V_pre, I_ext=0, V_syn=0, tauS=3, m_inf=False, hn
 
 def simulacion(n_iter=5000, t_max=5000, V_syn=0, I_ext=1e1, tauS=3):
 
-    # g_syn_list = np.linspace(0, 2, 51)
-    # g_syn_list = [1.48, 1.5, 1.52]
-    # g_syn_list = np.linspace(0, 2, 101)
-    # g_syn_list = np.linspace(00.5, 2, 16)
-    g_syn_list = np.linspace(0, 2, 21)
+    g_syn_list = np.linspace(0, 2, 21)              # Rango de g_syn que queremos estudiar
 
     f_log = []
     shift_log = []
 
     for g_syn in g_syn_list:
-
-        # z_0_1 = [-20,  0.1, 0.7, 0.1, 0.1]        # mejor con 10
-        # z_0_2 = [-30, 0.1, 0.3, 0.5, 0.1]
-
-        # z_0_1 = [-20,  0.1, 0.7, 0.1, 0.1]        # Esto con 10 da lindo, hay que ver con V!=0
-        # z_0_2 = [-30, 0.1, 0.3, 0.5, 0.1]         # Mejor todavia
-
-        # z_0_1 = [-20,  0.1, 0.3, 0.5, 0.1]        # Esto con 10 da lindo, hay que ver con V!=0
-        # z_0_2 = [-70, 0.1, 0.3, 0.5, 0.1]         # Mejor todavia
-
-        z_0_1 = [-10, 0, 0, 0, 0]        # Esto con 10 da lindo, hay que ver con V!=0
-        z_0_2 = [-30, 0, 0, 0, 0]         # Mejor todavia
+        
+        # Se puede jugar mucho con las condiciones iniciales, pero me parecio mas razonable usar las funciones x_inf
+        # ya que son valores que pueden alcanzarse en algun momento
+        z_0_1 = [-10, x_inf(a_m(-10), b_m(-10)), x_inf(a_h(-10), b_h(-10)), x_inf(a_n(-10), b_n(-10)), s_inf(-10)]
+        z_0_2 = [-30, x_inf(a_m(-30), b_m(-30)), x_inf(a_h(-30), b_h(-30)), x_inf(a_n(-30), b_n(-30)), s_inf(-30)]
         
         print("g_syn: {:.2f}".format(g_syn), end=" ")
 
-        # n_iter = 1000
-        t = np.linspace(0, t_max, n_iter)
-        # t = np.linspace(0, 200, n_iter)
+        t = np.linspace(0, t_max, n_iter+1)
         
-        V_1, V_2 = np.zeros_like(t), np.zeros_like(t)
+        V_1, V_2 = np.zeros_like(t), np.zeros_like(t)   # Aca vamos a ir guardando los valores de la simulacion
         m_1, m_2 = np.zeros_like(t), np.zeros_like(t)
         h_1, h_2 = np.zeros_like(t), np.zeros_like(t)
         n_1, n_2 = np.zeros_like(t), np.zeros_like(t)
         s_1, s_2 = np.zeros_like(t), np.zeros_like(t)
         
-        V_1[0], m_1[0], h_1[0], n_1[0], s_1[0] = z_0_1
+        V_1[0], m_1[0], h_1[0], n_1[0], s_1[0] = z_0_1      # El primer valor en la condicion inicial
         V_2[0], m_2[0], h_2[0], n_2[0], s_2[0] = z_0_2
 
-        # np.full(n_iter, I_ext)
-
-        for i in range(1,n_iter):
+        # Cuando a la funcion odeint le tenemos que pasar argumentos, lo que tenemos que hacer es ir integrando para cada t nuevo
+        # tomando como condicion inicial el resultado de la iteracion anterior
+        for i in range(1,n_iter+1):
             t_span = [t[i - 1], t[i]]
 
-            # z_1 = odeint(Hogdkin_Huxley, z_0_1, t_span, args=(g_syn, V_2[-1], I_ext, V_syn, tauS,))
-            # z_2 = odeint(Hogdkin_Huxley, z_0_2, t_span, args=(g_syn, V_1[-1], I_ext, V_syn, tauS,))
+            # Hacemos una iteracion
             z_1 = odeint(Hogdkin_Huxley, z_0_1, t_span, args=(g_syn, z_0_2[0], I_ext, V_syn, tauS,))
             z_2 = odeint(Hogdkin_Huxley, z_0_2, t_span, args=(g_syn, z_0_1[0], I_ext, V_syn, tauS,))
             
+            # El resultado son las CI de la siguiente iteracion
             z_0_1 = z_1[1]
             z_0_2 = z_2[1]
 
             V_1[i], m_1[i], h_1[i], n_1[i], s_1[i] = z_0_1
             V_2[i], m_2[i], h_2[i], n_2[i], s_2[i] = z_0_2
         
+        # Ploteo el resultado y lo guardo, son muchas imagenes asi que lo dejo comentado
         plotear(t, V_1, V_2, g_syn, V_syn)
 
+        # Calculamos la tasa de disparo y el desfasaje
+        # Para que esto este bien, la resolucion temporal tiene que ser bastante guanaca
         f, shift = tasaDeDisparoYDesfasaje(t, V_1, V_2, t_max/n_iter, V_syn)
 
         f_log.append(f)
@@ -169,6 +160,7 @@ def simulacion(n_iter=5000, t_max=5000, V_syn=0, I_ext=1e1, tauS=3):
     f_log = np.array(f_log)
     shift_log = np.array(shift_log)
 
+    # Cambiamos el nombre del archivo segun estemos en el caso excitatorio o inhibitorio
     if V_syn == 0:
         file_name = os.path.join(SAVE_PATH, "Excitatorio.npz")
     else:
@@ -176,56 +168,34 @@ def simulacion(n_iter=5000, t_max=5000, V_syn=0, I_ext=1e1, tauS=3):
     
     np.savez(file_name, g_syn=g_syn_list, f=f_log, shift=shift_log)
 
-
-
-
-
+# Funcion que nos calcula la tasa de disparo y el desfasaje
 def tasaDeDisparoYDesfasaje(t, V_1, V_2, deltaT, V_syn):
+    # Calculamos los picos, capaz es mejor hacerlo con los cruces en cero, pero paja aprender ahora
     peaks_1, _ = find_peaks(V_1, height=-10)
     peaks_2, _ = find_peaks(V_2, height=-10)
 
-    peaks_1 = peaks_1[-50:]
-    peaks_2 = peaks_2[-50:]
+    # Nos quedamos con los ultimos, porque son los que seguro pertenecen al regimen transitorio
+    peaks_1 = peaks_1[-20:]
+    peaks_2 = peaks_2[-20:]
 
-    # import ipdb; ipdb.set_trace(context=15)  # XXX BREAKPOINT
-
+    # Calculamos la diferencia de tiempos entre picos
     T1 = (t[peaks_1[1:]] - t[peaks_1[:-1]])
     T2 = (t[peaks_2[1:]] - t[peaks_2[:-1]])
 
+    # Promediamos y sacamos la frecuencia en Hz
     T = np.concatenate((T1, T2))
     T = T.mean()         
-    f = 1 / (T * 1e-3)  # A segundos
-    
-    # T1 = (t[peaks_1[1: ]] - t[peaks_1[: -1]]) * deltaT
-    # T2 = (t[peaks_2[1: ]] - t[peaks_2[: -1]]) * deltaT
+    f = 1.0 / (T * 1e-3)  # A segundos
 
-    # while(len(T1) != len(T2)):
-    #     if len(T1) > len(T2):
-    #         T1 = T1[:-1]
-    #     elif len(T1) < len(T2):
-    #         T2 = T2[:-1]
-
-    # T = 0.5*(T1+T2).mean()
-    # f = 1 / T * 1e3
-
-    if V_syn == 0:
-        T_diff = abs((t[peaks_1] - t[peaks_2]).mean())
-        shift = ((T_diff % T) / T) * 2 * np.pi
-    else:
-        T_diff = abs((t[peaks_1] - t[peaks_2]).mean())
-        shift = ((T_diff % T) / T) * 2 * np.pi
-        # peaks = np.concatenate((peaks_1, peaks_2))
-        # peaks = np.sort(peaks)
-        # T_diff = abs((t[peaks[1:]] - t[peaks[:-1]]).mean())
-        # shift = (T_diff / T) * 2 * np.pi
-
-    # import ipdb; ipdb.set_trace(context=15)  # XXX BREAKPOINT
+    # Sacamos el desfasaje calculando la fraccion respecto al periodo
+    T_diff = abs((t[peaks_1] - t[peaks_2]).mean())      # Capaz el abs no hace falta
+    shift = ((T_diff % T) / T) * 2 * np.pi    
 
     print("f={:.2f}, s={:.2f}".format(f,shift))
 
     return [f, shift]
 
-
+# Arma graficos con un nivel de obsesividad importante, pero le falta para que me termine de gustar
 def plotsBarridos():
 
     file_exc = os.path.join(SAVE_PATH, "Excitatorio.npz")
@@ -240,11 +210,9 @@ def plotsBarridos():
     ax.plot(data_inh['g_syn'], data_inh['f'], '--.', label="Inhibitorio")
     ax.set_ylabel("Frecuencia [Hz]")
     ax.set_xlabel(r"$g_{syn}$ [$\frac{mS}{cm^{2}}$]")
-    # sns.despine(trim=True)
     plt.legend(loc='best')
-    # plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
     plt.tight_layout()
-    file_name = os.path.join(SAVE_PATH,"Tasa_de_Disparo")
+    file_name = os.path.join(SAVE_PATH,"Tasa_de_Disparo.pdf")
     plt.savefig(file_name, format='pdf')
     # plt.show()
     plt.close()
@@ -258,46 +226,109 @@ def plotsBarridos():
     ax.set_yticks([0, 0.25*np.pi, 0.5*np.pi, 0.75*np.pi, np.pi])
     ax.set_yticklabels(["$0$", r"$\frac{1}{4}\pi$",
                      r"$\frac{1}{2}\pi$", r"$\frac{3}{4}\pi$", r"$\pi$"])
-    # sns.despine(trim=True)
     plt.legend(loc='best')
-    # plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
     plt.tight_layout()
-    file_name = os.path.join(SAVE_PATH,"Desfasaje")
+    file_name = os.path.join(SAVE_PATH,"Desfasaje.pdf")
     plt.savefig(file_name, format='pdf')
     # plt.show()
     plt.close()
 
-    # import ipdb; ipdb.set_trace(context=15)  # XXX BREAKPOINT
 
+# Arma graficos con un nivel de obsesividad importante, pero le falta para que me termine de gustar
 def plotear(t, V_1, V_2, g_syn, V_syn):
 
     if V_syn == 0:
         file_name = os.path.join(SAVE_PATH, "Excitatorio", "{:.2f}.pdf".format(g_syn))
-        file_path = os.path.join(SAVE_PATH, "Excitatorio")
+        file_path = os.path.join(SAVE_PATH, "Excitatorio_g=1.npz")
     else:
         file_name = os.path.join(SAVE_PATH, "Inhibitorio", "{:.2f}.pdf".format(g_syn))
-        file_path = os.path.join(SAVE_PATH, "Inhibitorio")
+        file_path = os.path.join(SAVE_PATH, "Inhibitorio_g=1.npz")
     
     # Guardo los datos para g_syn = 1 asi despues hago un grafico lindo
     if(g_syn == 1):
         np.savez(file_path, t=t, V_1=V_1, V_2=V_2)
 
-    # plt.plot(t, V_1, label="Neurona 1")
-    # plt.plot(t, V_2, label="Neurona 2")
+    plt.plot(t, V_1, label="Neurona 1")
+    plt.plot(t, V_2, label="Neurona 2")
+    plt.ylabel("V [mV]")
+    plt.xlabel("Tiempo [ms]")
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
+    plt.tight_layout()
+    plt.savefig(file_name, format='pdf')
+    plt.close()
+    # plt.show()
+
     plt.plot(t[-len(V_1)//10:], V_1[-len(V_1)//10:], label="Neurona 1")
     plt.plot(t[-len(V_2)//10:], V_2[-len(V_2)//10:], label="Neurona 2")
     plt.ylabel("V [mV]")
     plt.xlabel("Tiempo [ms]")
-    # sns.despine(trim=True)
-    # plt.legend(loc='best')
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
     plt.tight_layout()
-    plt.savefig(file_name, format='pdf')
-    # plt.show()
+    plt.savefig(file_name + "aux.pdf", format='pdf')
     plt.close()
+    # plt.show()
+
+# Arma graficos con un nivel de obsesividad importante, pero le falta para que me termine de gustar
+def ploteoVoltaje():
+
+    file_exc = os.path.join(SAVE_PATH, "Excitatorio_g=1.npz")
+    file_inh = os.path.join(SAVE_PATH, "Inhibitorio_g=1.npz")
+
+    data_exc = np.load(file_exc)
+    data_inh = np.load(file_inh)
+
+    # Final Excitatorio
+    plt.plot(data_exc['t'][-10001:], data_exc['V_1'][-10001:], label="Neurona 1")
+    plt.plot(data_exc['t'][-10001:], data_exc['V_2'][-10001:], label="Neurona 2")
+    plt.ylabel("V [mV]")
+    plt.xlabel("Tiempo [ms]")
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
+    plt.tight_layout()
+    plt.savefig("Excitatorio_final.pdf", format='pdf')
+    # plt.close()
+    plt.show()
+
+    # Principio Excitatorio
+    plt.plot(data_exc['t'][:10001], data_exc['V_1'][:10001], label="Neurona 1")
+    plt.plot(data_exc['t'][:10001], data_exc['V_2'][:10001], label="Neurona 2")
+    plt.ylabel("V [mV]")
+    plt.xlabel("Tiempo [ms]")
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
+    plt.tight_layout()
+    plt.savefig("Excitatorio_inicio.pdf", format='pdf')
+    # plt.close()
+    plt.show()
+
+    # Final Inhibitorio
+    plt.plot(data_inh['t'][-10001:], data_inh['V_1'][-10001:], label="Neurona 1")
+    plt.plot(data_inh['t'][-10001:], data_inh['V_2'][-10001:], label="Neurona 2")
+    plt.ylabel("V [mV]")
+    plt.xlabel("Tiempo [ms]")
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
+    plt.tight_layout()
+    plt.savefig("Inhibitorio_final.pdf", format='pdf')
+    # plt.close()
+    plt.show()
+
+    # Principio Inhibitorio
+    plt.plot(data_inh['t'][:10001], data_inh['V_1'][:10001], label="Neurona 1")
+    plt.plot(data_inh['t'][:10001], data_inh['V_2'][:10001], label="Neurona 2")
+    plt.ylabel("V [mV]")
+    plt.xlabel("Tiempo [ms]")
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=2, fancybox=True, shadow=False)
+    plt.tight_layout()
+    plt.savefig("Inhibitorio_inicio.pdf", format='pdf')
+    # plt.close()
+    plt.show()
 
 if __name__ == "__main__":
-    # simulacion(n_iter=7500, t_max=7500, I_ext=1e1)
-    # simulacion(n_iter=7500, I_ext=1e1, V_syn=-80)
-    # simulacion(I_ext=1e1, V_syn=-80)
+    simulacion(n_iter=250000, t_max=2500, I_ext=1e1)
+    simulacion(n_iter=250000, t_max=2500, I_ext=1e1, V_syn=-80)
     plotsBarridos()
+    ploteoVoltaje()
+
+
+
+# f(x)=a+b*tanh(c*(x-x0))
+# f(x)=1*(1+tanh(c*(x-x0)))
+# a*(1+tanh(c*(x-x0)))
