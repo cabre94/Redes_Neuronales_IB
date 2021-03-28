@@ -11,6 +11,7 @@ Description:
 """
 
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.visualization import hist
@@ -25,184 +26,128 @@ if not os.path.exists(SAVE_PATH):
 
 # Abrimos los archivos
 spikes = np.loadtxt("spikes.dat")
-spikes = spikes[:,1:]   # Tiro la primer columna de todo, ¿porque? No se
+t, stimulus = np.loadtxt("stimulus.dat", unpack=True)
 
-# stimulus = {}
-# stimulus['t'], stimulus['I'] = np.loadtxt("stimulus.dat", unpack=True)
-
-# suma = spikes.sum(axis=0)
-
-# plt.hist(spikes, bins=1000, range=(0,50))
-# plt.show()
-
-isis = np.array([])
-
-isis_aux = []
-t_spikes = []
-
-t = np.arange(0.1, 1000, 0.1)
-
-for i in range(len(spikes)):
-    isis = np.concatenate((isis, np.diff(t[spikes[i] > 0])))
-    isis_aux.append(np.diff(t[spikes[i] > 0]))
-    t_spikes.append(t[spikes[i] > 0])
-
-
-""" Para elegir los bines de un histograma
-fig, ax = plt.subplots(2, 2)
-ax = ax.flatten() # ax es 2d, asi lo pasamos a 1d
-
-for i, bins in enumerate(['scott', 'freedman', 'knuth', 'blocks']):
-    histograma(isis, bins=bins, ax=ax[i])
-    ax[i].set_title(f'hist(t, bins="{bins}")',fontdict=dict(family='monospace'))
-plt.tight_layout()
-plt.show()
-"""
-
+# En el estimulo tenemos un tiempo mas respecto a los spikes, lo tiramos.
+t = t[:-1]
+stimulus = stimulus[:-1]
 
 ############################
 # 1
 ############################
-cv2 = []
-isis_mean = []
 
-for isi in isis_aux:
-    cv2.append( 2 * abs(isi[:-1] - isi[1:]) / (isi[:-1] + isi[1:]))
-    isis_mean.append(isi.mean())
+# Vamos a calcular todos los tiempos entre dos spikes
+isis = np.array([])     # Guardamos los tiempos entre spikes
+t_spikes = []           # Guardamos los tiempos de los spikes
 
-cv2 = np.concatenate(cv2)
-isis_aux = np.array(isis_aux, dtype=object)
+# Recorremos las pruebas y nos quedamos con las diferencias entre las
+# posiciones que hay un 1 
+for i in range(len(spikes)):
+    isis = np.concatenate((isis, np.diff(t[spikes[i] > 0])))
+    t_spikes.append(t[spikes[i] > 0])
+
 t_spikes = np.array(t_spikes, dtype=object)
 
 # Histograma de tiempos entre spikes
 fig = plt.figure()
-hist(isis, bins='freedman')
+hist(isis, bins='freedman', density=True)
+plt.xlim(0, 50)
+plt.xlabel("ISI [ms]")
+plt.ylabel(r"$P(\tau)$")
 plt.tight_layout()
+fig_name = os.path.join(SAVE_PATH, "1_Distr_ISI.pdf")
+plt.savefig(fig_name)
+# plt.close()
 plt.show()
 
-# Promedio de isi en cada prueba
-plt.figure()
-plt.plot(isis_mean)
-plt.ylabel("Intervalo inter-spikes promedio [ms]")
-plt.xlabel("# de prueba")
-plt.tight_layout()
-plt.show()
 
-plt.figure()
+fig, axs = plt.subplots(2,1,figsize=(9,6), gridspec_kw={'height_ratios': [1, 1.8]})
+# Grafico del estimulo
+axs[0].plot(t, stimulus)
+axs[0].set_ylabel("S [dB]")
+axs[0].set_xlim(-1, 1001)
+axs[0].xaxis.set_visible(False)
+# Rasterplot
 plt.eventplot(t_spikes)
-plt.title("Rasterplot")
-plt.xlabel("Tiempo [ms]")
-plt.xlabel("Prueba")
+axs[1].set_xlabel("Tiempo [ms]")
+axs[1].set_ylabel("Prueba")
+axs[1].set_xlim(-1, 1001)
+axs[1].set_ylim(0, 120)
+plt.tight_layout()
+plt.subplots_adjust(wspace=0, hspace=0.01)
+fig_name = os.path.join(SAVE_PATH, "1_Rasterplot.pdf")
+plt.savefig(fig_name)
+# plt.close()
 plt.show()
 
+# Calculamos el CV
 CV = isis.std() / isis.mean()
 
 print("Coeficiente de variacion = {}".format(CV))
 print("Intervalo inter-spikes promedio = {} ms".format(isis.mean()))
 print("Tasa de disparo promedio = {} Hz".format(1.0 / isis.mean() * 1e3))
-print("Coeficiente de variacion2 = {}".format(cv2.mean()))
-
 
 ############################
 # 2
 ############################
+
+# Sacamos la cantidad de spikes total en cada experimento 
 count = spikes.sum(axis=1)
-print("Count ", count.shape)
-
-plt.figure()
-plt.plot(count)
-plt.xlabel("# de prueba")
-plt.ylabel("Numero de spikes")
-plt.tight_layout()
-plt.show()
-
-plt.figure()
-plt.plot(np.sort(count))
-plt.xlabel("# de prueba ordenadas")
-plt.ylabel("Numero de spikes")
-plt.tight_layout()
-plt.show()
-
-count = spikes.sum(axis=1)
-
-plt.figure()
-plt.eventplot(t_spikes[np.argsort(count)])
-plt.title("Rasterplot")
-plt.xlabel("Tiempo [ms]")
-plt.ylabel("# de prueba ordenadas")
-plt.tight_layout()
-plt.show()
 
 plt.figure()
 hist(count, bins='freedman', density=True)
-plt.xlabel("Numero de spikes")
-plt.ylabel("Numero de pruebas")
+plt.xlabel(r"$N$")
+plt.ylabel(r"$P(N)$")
 plt.tight_layout()
+fig_name = os.path.join(SAVE_PATH, "2_PN.pdf")
+plt.savefig(fig_name)
 plt.show()
+# plt.close()
 
+# Calculamos el factor de Fano
 Fano = count.var() / count.mean()
 print("Factor de Fano: {}".format(Fano))
-
-
 
 ############################
 # 3
 ############################
 
-# Nose que es esto
-plt.figure()
-hist(np.concatenate(t_spikes), bins='freedman')
-plt.title("Histograma tiempos de disparo")
+binwidth = 5
+t_spikes = np.concatenate(t_spikes)
+
+# Histograma tiempos de disparo
+plt.figure(figsize=(12,8))
+hist(t_spikes, bins=range(0, 1000 + binwidth, binwidth), density=True)
+# plt.title("Histograma tiempos de disparo")
 plt.ylabel("Numero de spikes")
 plt.xlabel("Tiempo de disparo [ms]")
+plt.tight_layout()
+# fig_name = os.path.join(SAVE_PATH, "3_rt_{}.pdf".format(binwidth))
+fig_name = os.path.join(SAVE_PATH, "3_rt.pdf")
+plt.savefig(fig_name)
+# plt.close()
 plt.show()
-
-from scipy import stats
-
-rate = np.mean(spikes, axis=0) * 1e4
-print("Tasa de disparo proemdio {} Hz".format(rate.mean()))
-
-# fig, ax = plt.subplots()
-plt.figure()
-plt.plot(t, rate, lw=1)
-# ax.plot(t, rate, lw=1)
-ax = plt.gca()
-ax_in = ax.inset_axes([0.24, 0.77, 0.3, 0.2])
-ax_in.plot(t[3000:3100], rate[3000:3100], lw=1)
-ax.indicate_inset_zoom(ax_in, edgecolor='k', alpha=0.8)
-ax_in.set_xticks([])
-plt.text(0.39, 0.76, "10 ms", horizontalalignment="center", verticalalignment="top", transform=ax.transAxes)
-plt.title("Tasa de disparo, bin = 0.1, ms = 1 idx")
-plt.ylabel("Tasa de disparo [Hz]")
-plt.xlabel("Tiempo de disparo [ms]")
-plt.show()
-
-
 
 
 ############################
 # 4
 ############################
 
-kk = spikes.sum(axis=0)
-total = kk.sum()
-
-kk_t, stimulus = np.loadtxt("stimulus.dat", unpack=True)
-
-stimulus = stimulus[1:-1]
+cant_spikes = spikes.sum(axis=0)
+total = cant_spikes.sum()
 
 filtro = []
 tau_log = []
 
+# Barremos tau de 0 a 100 ms
 for tau in range(1001):
-
     suma = 0
-
-    # Recorremos todos los spikes
-    for i in range(len(kk)):
+    
+    for i in range(len(cant_spikes)):    # Recorremos todos los spikes
         t_previo = i - tau
         if(t_previo >= 0):
-            suma += kk[i] * stimulus[t_previo]  # Cant spikes * estimulo hace un tiempo tau
+            # Cant spikes * estimulo hace un tiempo tau
+            suma += cant_spikes[i] * stimulus[t_previo]  
     
     filtro.append(suma / total)
     tau_log.append(tau / 10)
@@ -212,16 +157,10 @@ tau_log = np.array(tau_log)
 
 plt.plot(tau_log, filtro)
 plt.xlabel(r"$\tau$ [ms]")
-plt.ylabel(r"Algo")
+plt.ylabel(r"Spike-triggered average $C(\tau)$")
+plt.tight_layout()
+fig_name = os.path.join(SAVE_PATH, "4_filtro.pdf")
+plt.savefig(fig_name)
 plt.show()
+# plt.close()
         
-
-
-
-
-
-
-
-
-
-
