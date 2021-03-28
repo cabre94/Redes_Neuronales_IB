@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 from astropy.visualization import hist
 from numpy.core.shape_base import block
 import seaborn as sns
-sns.set()
+sns.set(font_scale=1.5)
+
 
 # Creamos carpeta para guardar los archivos
 SAVE_PATH = os.path.join("Informe", "Figuras")
@@ -49,7 +50,7 @@ for i in range(len(spikes)):
 t_spikes = np.array(t_spikes, dtype=object)
 
 # Histograma de tiempos entre spikes
-fig = plt.figure()
+fig = plt.figure(figsize=(9,6))
 hist(isis, bins='freedman', density=True)
 plt.xlim(0, 50)
 plt.xlabel("ISI [ms]")
@@ -94,7 +95,7 @@ print("Tasa de disparo promedio = {} Hz".format(1.0 / isis.mean() * 1e3))
 # Sacamos la cantidad de spikes total en cada experimento 
 count = spikes.sum(axis=1)
 
-plt.figure()
+plt.figure(figsize=(9,6))
 hist(count, bins='freedman', density=True)
 plt.xlabel(r"$N$")
 plt.ylabel(r"$P(N)$")
@@ -112,22 +113,20 @@ print("Factor de Fano: {}".format(Fano))
 # 3
 ############################
 
-binwidth = 5
-t_spikes = np.concatenate(t_spikes)
+rate = np.mean(spikes, axis=0) * 1e4
+print("Tasa de disparo proemdio {} Hz".format(rate.mean()))
 
-# Histograma tiempos de disparo
-plt.figure(figsize=(12,8))
-hist(t_spikes, bins=range(0, 1000 + binwidth, binwidth), density=True)
-# plt.title("Histograma tiempos de disparo")
-plt.ylabel("Numero de spikes")
-plt.xlabel("Tiempo de disparo [ms]")
+# fig, ax = plt.subplots()
+plt.figure(figsize=(9,6))
+plt.plot(t[1:], rate[1:], lw=1)
+plt.ylabel(r"$r(t)$ [Hz]")
+plt.xlabel("t [ms]")
 plt.tight_layout()
 # fig_name = os.path.join(SAVE_PATH, "3_rt_{}.pdf".format(binwidth))
 fig_name = os.path.join(SAVE_PATH, "3_rt.pdf")
 plt.savefig(fig_name)
 # plt.close()
 plt.show()
-
 
 ############################
 # 4
@@ -155,9 +154,10 @@ for tau in range(1001):
 filtro = np.array(filtro)
 tau_log = np.array(tau_log)
 
+plt.figure(figsize=(9,6))
 plt.plot(tau_log, filtro)
 plt.xlabel(r"$\tau$ [ms]")
-plt.ylabel(r"Spike-triggered average $C(\tau)$")
+plt.ylabel(r"Spike-triggered average $C(\tau)$ [dB]")
 plt.tight_layout()
 fig_name = os.path.join(SAVE_PATH, "4_filtro.pdf")
 plt.savefig(fig_name)
