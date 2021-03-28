@@ -11,11 +11,9 @@ Description:
 """
 
 import os
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.visualization import hist
-from numpy.core.shape_base import block
 import seaborn as sns
 sns.set(font_scale=1.5)
 
