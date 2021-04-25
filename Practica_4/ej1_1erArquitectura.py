@@ -216,26 +216,29 @@ def meanTdeConvergencia():
     y_train = np.array([1,-1,-1,1]).astype(np.float)
 
     t_convergencia = []
+    count = 0
 
-    while(len(t_convergencia) < 100):
+    while(len(t_convergencia) < 1000):
 
         t, _, _ = fit(x_train, y_train, lr=1e-1,initialization='normal', epochs=2000, verbose=False)
 
         if t != -1:
             t_convergencia.append(t)
         
+        count += 1
         print(len(t_convergencia))
     
     t_convergencia = np.array(t_convergencia)
     t_medio = t_convergencia.mean()
     
-    print(t_medio)
+    print("Tiempo medio: ", t_medio)
+    print("# de corridas: ", count)
     return t_medio
 
 
 
 
 if __name__ == "__main__":
-    diezCorridas()
+    # diezCorridas()
 
-    # meanTdeConvergencia()
+    meanTdeConvergencia()
