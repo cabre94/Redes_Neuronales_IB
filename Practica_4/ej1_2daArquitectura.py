@@ -63,10 +63,10 @@ def fit(x_train, y_train, lr=1.0, epochs=10000, initialization='normal', verbose
     # Primero, inicializo las componentes de las W1 y W1 (que tambien tienen el bias)
     if initialization == 'uniform':
         [b1_1, w1_1, w1_2] = np.random.uniform(-1,1, size=(dim+1,nn))
-        [b2_1, w2_1, w2_2, w2_3] = np.random.uniform(-1,1, size=(nn+1,clases))
+        [b2_1, w2_1, w2_2, w2_3] = np.random.uniform(-1,1, size=(nn+dim+1,clases))
     elif initialization == 'normal':
         [b1_1, w1_1, w1_2] = (1/np.sqrt(nn+1))*np.random.normal(0,1, size=(dim+1,nn))
-        [b2_1, w2_1, w2_2, w2_3] = (1/np.sqrt(clases+1))*np.random.normal(0,1, size=(nn+1,clases))
+        [b2_1, w2_1, w2_2, w2_3] = (1/np.sqrt(clases+1))*np.random.normal(0,1, size=(nn+dim+1,clases))
     else:
         raise("Invalid weight initialization: {}".format(initialization))
 
@@ -173,3 +173,66 @@ def fit(x_train, y_train, lr=1.0, epochs=10000, initialization='normal', verbose
         t_convergencia = -1
     
     return [t_convergencia, loss, acc]
+
+def diezCorridas():
+
+    x_train = np.array([[-1,-1],[-1,1],[1,-1],[1,1]]).astype(np.float)
+    y_train = np.array([1,-1,-1,1]).astype(np.float)
+
+    figLoss = plt.figure()
+    axLoss = figLoss.add_subplot(111)
+    figAcc = plt.figure()
+    axAcc = figAcc.add_subplot(111)
+
+    for _ in range(10):
+
+        t, loss, acc = fit(x_train, y_train, lr=1e-1,initialization='normal', epochs=2000, verbose=False)
+
+        axLoss.plot(loss)
+        axAcc.plot(acc)
+
+    axLoss.set_xlabel("Epoca", fontsize=15)
+    axLoss.set_ylabel("MSE", fontsize=15)
+    figLoss.tight_layout()
+
+    axAcc.set_xlabel("Epoca", fontsize=15)
+    axAcc.set_ylabel("Accuracy", fontsize=15)
+    figAcc.tight_layout()
+
+    figLoss.savefig(os.path.join(SAVE_PATH, "Loss.pdf"), format='pdf')
+    figAcc.savefig(os.path.join(SAVE_PATH, "Acc.pdf"), format='pdf')
+    plt.show()
+
+def meanTdeConvergencia():
+    
+    x_train = np.array([[-1,-1],[-1,1],[1,-1],[1,1]]).astype(np.float)
+    y_train = np.array([1,-1,-1,1]).astype(np.float)
+
+    t_convergencia = []
+    count = 0
+
+    while(len(t_convergencia) < 1000):
+
+        t, _, _ = fit(x_train, y_train, lr=1e-1,initialization='normal', epochs=2000, verbose=False)
+
+        if t != -1:
+            t_convergencia.append(t)
+        
+        count += 1
+        print(len(t_convergencia))
+    
+    t_convergencia = np.array(t_convergencia)
+    t_medio = t_convergencia.mean()
+    
+    print("Tiempo medio: ", t_medio)
+    print("# de corridas: ", count)
+    return t_medio
+
+
+
+
+
+if __name__ == "__main__":
+    # diezCorridas()
+
+    meanTdeConvergencia()
