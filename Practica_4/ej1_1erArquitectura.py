@@ -182,8 +182,6 @@ def fit(x_train, y_train, lr=1.0, epochs=10000, initialization='normal', verbose
     return [t_convergencia, loss, acc]
 
 
-
-
 def diezCorridas():
 
     x_train = np.array([[-1,-1],[-1,1],[1,-1],[1,1]]).astype(np.float)
