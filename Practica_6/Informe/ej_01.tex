@@ -13,6 +13,7 @@ Luego se evaluó la matriz de conexiones $J$ de la red según
         0           & \text{si } i=j. \\
         \end{array}
     \right.
+    \label{eq:J}
 \end{equation}
 
 Fijados los valores de $N$ y $p$, se iteró la dinámica determinista dada por 
@@ -25,8 +26,6 @@ tomando como condición inicial $\vec{S} = \vec{\xi}^{\mu}$ y recorriendo el vec
 \end{equation}
 Este proceso se repitió para cada uno de los $p$ patrones.
 
-
-
 \begin{figure}[htb!]
     \centering
     \includegraphics[width=\textwidth]{../1.pdf}
@@ -36,4 +35,6 @@ Este proceso se repitió para cada uno de los $p$ patrones.
 
 En la Fig. \ref{fig:01} se observan distintos histogramas de los \textit{overlaps} obtenidos para distintos valores de $N$ y del parámetro de carga $\alpha = \dfrac{p}{N}$. Para distintos tamaños y para $\alpha=0.12$ se observa que la mayor parte de los \textit{overlaps} es cercano a $1$, lo cual indica que el sistema puede reconocer los patrones que se almacenaron en la matriz de conexiones $J$. En el limite $N\rightarrow\infty$, los valores de \textit{overlap} deberían ser tales que $m\approx1$ para $\alpha < \alpha_{c} \approx 0.138$ y $m=0$ para $\alpha > \alpha_{c}$, lo cual es consistente para los resultados obtenidos para $\alpha = 0.12$.
 
-Por otro lado, al aumentar el parámetro de carga, la red disminuye su \textit{overlap} medio con los valores de entrada de manera continua. Esto es consecuencia de trabajar con sistemas finitos. 
+Por otro lado, al aumentar el parámetro de carga, la red disminuye su \textit{overlap} medio con los valores de entrada de manera continua. Esto es consecuencia de trabajar con sistemas finitos.
+
+Para $\alpha > \alpha_{c}$, la distribución de los \textit{overlaps} no se concentra en $0$, si no que se acumulan alrededor de $m \approx 0.3$ a medida que aumenta $\alpha$. 
